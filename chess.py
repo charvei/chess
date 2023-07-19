@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Literal
+from typing import Literal, Optional
 
 
 class InvalidMove(Exception):
@@ -37,11 +37,11 @@ class ChessPiece:
         self.side = side
 
     @property
-    def move_set(self):
+    def move_set(self) -> list[Vector]:
         raise NotImplemented()
 
     @property
-    def attack_set(self):
+    def attack_set(self) -> list[Vector]:
         """Unless overridden this will be the same as the move set"""
         return self.move_set
 
@@ -90,7 +90,7 @@ class Rook(ChessPiece):
 class Bishop(ChessPiece):
     """"""
     @property
-    def move_set(self):
+    def move_set(self) -> list[Vector]:
         return [
             Vector(rank=1, file=1, magnitude=8),
             Vector(rank=1, file=-1, magnitude=8),
@@ -102,18 +102,46 @@ class Bishop(ChessPiece):
 class Knight(ChessPiece):
     """"""
     @property
-    def move_set(self):
+    def move_set(self) -> list[Vector]:
         return [
             Vector(rank=2, file=1, magnitude=1),
             Vector(rank=2, file=-1, magnitude=1),
             Vector(rank=-2, file=1, magnitude=1),
             Vector(rank=-2, file=-1, magnitude=1),
-
             Vector(rank=1, file=2, magnitude=1),
             Vector(rank=1, file=-2, magnitude=1),
             Vector(rank=-1, file=2, magnitude=1),
             Vector(rank=-1, file=-2, magnitude=1)
+        ]
 
+class Queen(ChessPiece):
+    """"""
+    @property
+    def move_set(self) -> list[Vector]:
+        return [
+            Vector(rank=1, file=1, magnitude=8),
+            Vector(rank=1, file=-1, magnitude=8),
+            Vector(rank=-1, file=1, magnitude=8),
+            Vector(rank=-1, file=-1, magnitude=8),
+            Vector(rank=1, file=0, magnitude=8),
+            Vector(rank=-1, file=0, magnitude=8),
+            Vector(rank=0, file=1, magnitude=8),
+            Vector(rank=0, file=-1, magnitude=8)
+        ]
+
+
+class King(ChessPiece):
+    @property
+    def move_set(self) -> list[Vector]:
+        return [
+            Vector(rank=1, file=1, magnitude=1),
+            Vector(rank=1, file=-1, magnitude=1),
+            Vector(rank=-1, file=1, magnitude=1),
+            Vector(rank=-1, file=-1, magnitude=1),
+            Vector(rank=1, file=0, magnitude=1),
+            Vector(rank=-1, file=0, magnitude=1),
+            Vector(rank=0, file=1, magnitude=1),
+            Vector(rank=0, file=-1, magnitude=1)
         ]
 
 
@@ -121,33 +149,8 @@ class ChessBoard:
     ranks = [1, 2, 3, 4, 5, 6, 7, 8]
     files = [1, 2, 3, 4, 5, 6, 7, 8]
 
-    def __init__(self):
-        self.pieces = []
-
-        for file in self.files:
-            self.pieces.append(Pawn(position=Position(2, file), side=Side.BLACK))
-            self.pieces.append(Pawn(position=Position(7, file), side=Side.WHITE))
-
-        self.pieces.append(Rook(position=Position(3, 3), side=Side.BLACK))
-
-        # Defaults
-        self.pieces.append(Rook(position=Position(1, 1), side=Side.BLACK))
-        self.pieces.append(Rook(position=Position(1, 8), side=Side.BLACK))
-        self.pieces.append(Rook(position=Position(8, 1), side=Side.WHITE))
-        self.pieces.append(Rook(position=Position(8, 8), side=Side.WHITE))
-
-        self.pieces.append(Bishop(position=Position(1, 3), side=Side.BLACK))
-        self.pieces.append(Bishop(position=Position(1, 6), side=Side.BLACK))
-        self.pieces.append(Bishop(position=Position(8, 3), side=Side.WHITE))
-        self.pieces.append(Bishop(position=Position(8, 6), side=Side.WHITE))
-
-        self.pieces.append(Knight(position=Position(1, 2), side=Side.BLACK))
-        self.pieces.append(Knight(position=Position(1, 7), side=Side.BLACK))
-        self.pieces.append(Knight(position=Position(8, 2), side=Side.WHITE))
-        self.pieces.append(Knight(position=Position(8, 7), side=Side.WHITE))
-
-        # self.pieces.append()
-
+    def __init__(self, pieces: Optional[list[ChessPiece]] = None):
+        self.pieces = pieces if pieces else self.default_pieces()
         self.board: dict[Position, ChessPiece] = {piece.position: piece for piece in self.pieces}
 
     def get_piece(self, position: Position) -> ChessPiece:
@@ -160,15 +163,14 @@ class ChessBoard:
         for vector in move_set:
             for step in range(vector.magnitude):
                 move = piece.position + Position((1 + step) * vector.rank, (1 + step) * vector.file)
-                if not (0 < move.rank < 8 and 0 < move.file < 8):
+                if not (0 < move.rank < 9 and 0 < move.file < 9):
                     # we have reached the end of the board so stop following the vector
                     break
                 else:
                     moves.append(move)
-                    if self.get_piece(move) or not (0 < move.rank < 8 and 0 < move.file < 8):
+                    if self.get_piece(move) or not (0 < move.rank < 9 and 0 < move.file < 9):
                         # A piece is blocking us so don't follow the vector anymore
                         break
-        print(moves)
         return moves
 
     def validate_move(self, src: Position, dst: Position, player: Side):
@@ -191,7 +193,6 @@ class ChessBoard:
             if dst not in self.get_possible_moves(src_piece, "move"):
                 raise InvalidMove("Move is not in src piece's move set")
 
-
     def move(self, src: Position, dst: Position, player: Side):
         """Move a piece"""
         self.validate_move(src, dst, player)
@@ -199,3 +200,28 @@ class ChessBoard:
         self.board[src] = None
         self.board[dst] = piece_to_move
         piece_to_move.position = dst
+
+    def default_pieces(self) -> list[ChessPiece]:
+        pawns = []
+        for file in self.files:
+            pawns.append(Pawn(position=Position(2, file), side=Side.BLACK))
+            pawns.append(Pawn(position=Position(7, file), side=Side.WHITE))
+
+        return pawns + [
+            Rook(position=Position(1, 1), side=Side.BLACK),
+            Rook(position=Position(1, 8), side=Side.BLACK),
+            Rook(position=Position(8, 1), side=Side.WHITE),
+            Rook(position=Position(8, 8), side=Side.WHITE),
+            Bishop(position=Position(1, 3), side=Side.BLACK),
+            Bishop(position=Position(1, 6), side=Side.BLACK),
+            Bishop(position=Position(8, 3), side=Side.WHITE),
+            Bishop(position=Position(8, 6), side=Side.WHITE),
+            Knight(position=Position(1, 2), side=Side.BLACK),
+            Knight(position=Position(1, 7), side=Side.BLACK),
+            Knight(position=Position(8, 2), side=Side.WHITE),
+            Knight(position=Position(8, 7), side=Side.WHITE),
+            Queen(position=Position(8, 4), side=Side.WHITE),
+            Queen(position=Position(1, 4), side=Side.BLACK),
+            King(position=Position(8, 5), side=Side.WHITE),
+            King(position=Position(1, 5), side=Side.BLACK)
+        ]
