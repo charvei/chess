@@ -44,8 +44,11 @@ class Game:
                     self.selected_position = None
                 except InvalidMove as im:
                     print(im)
+                    self.selected_position = clicked_position
             else:
-                self.selected_position = clicked_position
+                if (piece := self.board.get_piece(clicked_position)) and piece.side == self.current_player_turn:
+                    # Only allow for selecting position corresponding to a piece of a current players
+                    self.selected_position = clicked_position
 
     def _get_clicked_position(self) -> Optional[Position]:
         if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):

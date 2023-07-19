@@ -114,6 +114,7 @@ class Knight(ChessPiece):
             Vector(rank=-1, file=-2, magnitude=1)
         ]
 
+
 class Queen(ChessPiece):
     """"""
     @property

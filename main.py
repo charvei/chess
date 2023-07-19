@@ -13,16 +13,15 @@ class App:
         self.game = Game()
         pyxel.run(self.update, self.draw)
 
-
     def update(self):
         """"""
         self.game.maybe_handle_left_click()
         self.game.maybe_handle_right_click()
 
-
     def draw(self):
         pyxel.cls(0)
         self.game.draw_board()
         self.game.draw_pieces()
+
 
 App()
