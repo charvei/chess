@@ -3,6 +3,18 @@ from enum import Enum
 from typing import Literal, Optional
 
 
+FILE_NUM_TO_LABEL = {
+    1: 'a',
+    2: 'b',
+    3: 'c',
+    4: 'd',
+    5: 'e',
+    6: 'f',
+    7: 'g',
+    8: 'h'
+}
+
+
 class InvalidMove(Exception):
     """Raise when an invalid move is requested"""
 
@@ -16,6 +28,10 @@ class Side(Enum):
 class Position:
     rank: int
     file: int
+
+    @property
+    def algebraic_notation_name(self):
+        return f"{FILE_NUM_TO_LABEL[self.file]}{self.rank}"
 
     def __add__(self, x: "Position") -> "Position":
         return Position(self.rank + x.rank, self.file + x.file)
@@ -37,6 +53,10 @@ class ChessPiece:
         self.side = side
 
     @property
+    def algebraic_notation_name(self):
+        return self.__class__.__name__[0].upper()
+
+    @property
     def move_set(self) -> list[Vector]:
         raise NotImplemented()
 
@@ -51,6 +71,11 @@ class ChessPiece:
 
 class Pawn(ChessPiece):
     """Pawn"""
+    @property
+    def algebraic_notation_name(self):
+        """Pawns are identified by the lack of a name"""
+        return ""
+
     @property
     def direction_of_movement(self):
         return -1 if self.side == Side.WHITE else 1
@@ -102,6 +127,10 @@ class Bishop(ChessPiece):
 class Knight(ChessPiece):
     """"""
     @property
+    def algebraic_notation_name(self):
+        return "N"
+
+    @property
     def move_set(self) -> list[Vector]:
         return [
             Vector(rank=2, file=1, magnitude=1),
@@ -144,6 +173,17 @@ class King(ChessPiece):
             Vector(rank=0, file=1, magnitude=1),
             Vector(rank=0, file=-1, magnitude=1)
         ]
+
+
+@dataclass(frozen=True)
+class Move:
+    piece: ChessPiece
+    src: Position
+    dst: Position
+
+    @property
+    def as_long_algebraic_notation(self) -> str:
+        return f"{self.piece.algebraic_notation_name}{self.src.algebraic_notation_name}-{self.dst.algebraic_notation_name}"
 
 
 class ChessBoard:
@@ -201,6 +241,7 @@ class ChessBoard:
         self.board[src] = None
         self.board[dst] = piece_to_move
         piece_to_move.position = dst
+        return Move(piece_to_move, src, dst)
 
     def default_pieces(self) -> list[ChessPiece]:
         pawns = []
