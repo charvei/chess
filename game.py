@@ -8,11 +8,11 @@ from chess import Side, Position, ChessBoard, InvalidMove, ChessPiece, Move
 TILE_WIDTH = 16
 TILE_HEIGHT = 16
 
-BOARD_WIDTH = TILE_WIDTH*10
-BOARD_HEIGHT = TILE_HEIGHT*10
+BOARD_WIDTH = TILE_WIDTH * 10
+BOARD_HEIGHT = TILE_HEIGHT * 10
 
-GAME_INFO_WIDTH = TILE_WIDTH*4
-GAME_INFO_HEIGHT = TILE_HEIGHT*10
+GAME_INFO_WIDTH = TILE_WIDTH * 4
+GAME_INFO_HEIGHT = TILE_HEIGHT * 10
 
 IMAGE_LOCATION_FOR_PIECE = {
     "pawn": 0,
@@ -20,29 +20,18 @@ IMAGE_LOCATION_FOR_PIECE = {
     "bishop": 2,
     "knight": 3,
     "queen": 4,
-    "king": 5
+    "king": 5,
 }
 
-LABEL_FOR_FILE_POSITION = {
-    1: "a",
-    2: "b",
-    3: "c",
-    4: "d",
-    5: "e",
-    6: "f",
-    7: "g",
-    8: "h"
-}
+FILE_LABELS = ["a", "b", "c", "d", "e", "f", "g", "h"]
+RANK_LABELS = ["8", "7", "6", "5", "4", "3", "2", "1"]
 
 
 class Turn:
     def __init__(self):
         self.current_player = Side.WHITE
         # Currently hard coded for 10min games
-        self.timer = {
-            Side.WHITE: 10*60*1000,
-            Side.BLACK: 10*60*1000
-        }
+        self.timer = {Side.WHITE: 10 * 60 * 1000, Side.BLACK: 10 * 60 * 1000}
         self.last_update_time = datetime.now()
 
     def toggle_current_player(self):
@@ -64,7 +53,7 @@ class MoveTracker:
 
     def add_move(self, move: Move):
         """"""
-        print(move.as_long_algebraic_notation)
+        print(move.long_algebraic_notation)
         self.moves.append(move)
 
 
@@ -94,10 +83,10 @@ class Game:
     def _get_clicked_position(self) -> Optional[Position]:
         if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
             # convert screen position to board position
-            rank, file = int(pyxel.mouse_y / TILE_HEIGHT), int(pyxel.mouse_x / TILE_WIDTH)
+            rank, file = int(pyxel.mouse_y / TILE_HEIGHT) - 1, int(pyxel.mouse_x / TILE_WIDTH) - 1
 
             # Only return a position if a board tile was clicked
-            if 0 < rank < 9 and 0 < file < 9:
+            if 0 <= rank < 8 and 0 <= file < 8:
                 return Position(rank, file)
 
     def maybe_handle_right_click(self):
@@ -122,31 +111,54 @@ class Game:
         pyxel.rect(0, 0, TILE_WIDTH * 10, TILE_HEIGHT * 10, 5)
 
         # Draw file labels
-        for file in range(1, 9):
+        for file in range(8):
             for y in (0, 9):
-                pyxel.text(file * TILE_WIDTH + TILE_WIDTH / 2 - 2, y * TILE_HEIGHT + TILE_HEIGHT / 2 - 2, LABEL_FOR_FILE_POSITION[file],
-                           col=7)
+                pyxel.text(
+                    TILE_WIDTH + file * TILE_WIDTH + TILE_WIDTH / 2 - 2,
+                    y * TILE_HEIGHT + TILE_HEIGHT / 2 - 2,
+                    FILE_LABELS[file],
+                    col=7,
+                )
 
         # Draw rank labels
-        for rank in range(1, 9):
+        for rank in range(8):
             for x in (0, 9):
-                pyxel.text(x * TILE_WIDTH + TILE_WIDTH / 2 - 1, rank * TILE_HEIGHT + TILE_HEIGHT / 2 - 1, str(rank), col=7)
+                pyxel.text(
+                    x * TILE_WIDTH + TILE_WIDTH / 2 - 1,
+                    TILE_HEIGHT + rank * TILE_HEIGHT + TILE_HEIGHT / 2 - 1,
+                    RANK_LABELS[rank],
+                    col=7,
+                )
 
         # Draw board tiles
-        for file in range(1,9):
-            for rank in range(1, 9):
+        for file in range(8):
+            for rank in range(8):
                 colour = 4 if (rank + file) % 2 else 15
-                pyxel.rect(file * TILE_WIDTH, rank * TILE_HEIGHT, TILE_WIDTH, TILE_HEIGHT, colour)
+                pyxel.rect(
+                    (file + 1) * TILE_WIDTH,
+                    (rank + 1) * TILE_HEIGHT,
+                    TILE_WIDTH,
+                    TILE_HEIGHT,
+                    colour,
+                )
 
         # Draw selected border
         if self.selected_position:
-            pyxel.blt(self.selected_position.file * TILE_WIDTH, self.selected_position.rank * TILE_HEIGHT, 2, 0, 0,TILE_WIDTH,
-                          TILE_HEIGHT, colkey=2)
+            pyxel.blt(
+                TILE_WIDTH * 1 + self.selected_position.file * TILE_WIDTH,
+                TILE_HEIGHT * 1 + self.selected_position.rank * TILE_HEIGHT,
+                2,
+                0,
+                0,
+                TILE_WIDTH,
+                TILE_HEIGHT,
+                colkey=2,
+            )
 
     def draw_pieces(self):
-        for file in (range(8)):
-            for rank in (range(8)):
-                if piece := self.board.get_piece(Position(rank + 1, file + 1)):
+        for file in range(8):
+            for rank in range(8):
+                if piece := self.board.get_piece(Position(rank, file)):
                     pyxel.blt(
                         (file + 1) * TILE_WIDTH,
                         (rank + 1) * TILE_HEIGHT,
@@ -155,7 +167,7 @@ class Game:
                         IMAGE_LOCATION_FOR_PIECE[piece.__class__.__name__.lower()] * TILE_HEIGHT,
                         TILE_WIDTH,
                         TILE_HEIGHT,
-                        colkey=2
+                        colkey=2,
                     )
 
     def draw_game_info(self):
@@ -170,11 +182,27 @@ class Game:
         # Black timer
         pyxel.rect(BOARD_WIDTH + 2 * TILE_WIDTH, 0, GAME_INFO_WIDTH, 1 * TILE_HEIGHT, 4)
         black_mins, black_secs = self.turn.get_mins_seconds_left(Side.BLACK)
-        pyxel.text(BOARD_WIDTH + 5 + 2 * TILE_WIDTH, 5, f"{int(black_mins):02d}:{int(black_secs):02d}", 0)
+        pyxel.text(
+            BOARD_WIDTH + 5 + 2 * TILE_WIDTH,
+            5,
+            f"{int(black_mins):02d}:{int(black_secs):02d}",
+            0,
+        )
 
         # Move history
         # todo handle scrolling
-        pyxel.rect(BOARD_WIDTH, TILE_HEIGHT * 1, GAME_INFO_WIDTH, GAME_INFO_HEIGHT - 2 * TILE_HEIGHT, 0)
+        pyxel.rect(
+            BOARD_WIDTH,
+            TILE_HEIGHT * 1,
+            GAME_INFO_WIDTH,
+            GAME_INFO_HEIGHT - 2 * TILE_HEIGHT,
+            0,
+        )
         for i, move in enumerate(self.move_tracker.moves):
             label = f"{int(i/2) + 1}. " if not i % 2 else "   "
-            pyxel.text(BOARD_WIDTH, TILE_HEIGHT * 1 + (i * (TILE_HEIGHT / 2)) + 7, f"{label}{move.as_long_algebraic_notation}", 7)
+            pyxel.text(
+                BOARD_WIDTH,
+                TILE_HEIGHT * 1 + (i * (TILE_HEIGHT / 2)) + 7,
+                f"{label}{move.long_algebraic_notation}",
+                7,
+            )
