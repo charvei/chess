@@ -27,3 +27,23 @@ class App:
 
 
 App()
+
+# todo:
+#  inprogress:
+#   - checkmate
+#  backlog
+#   - game over handling
+#   - pawn promotion
+#   - player perspective
+#   - add en passant,
+#   - forfeit / starting new games,
+#   - scrolling move history,
+#   - connect to chess engine / api
+#   - short form algebraic notation
+#   - reverse & forward board through move history
+#  done:
+#   - fix rank labels (wrong order),
+#   - long algebraic notation
+#   - castling
+#   - check
+#   - check shows in move history

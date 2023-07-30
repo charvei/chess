@@ -72,13 +72,13 @@ class Game:
                 try:
                     self.move(self.selected_position, clicked_position)
                     self.selected_position = None
+                    return
                 except InvalidMove as im:
                     print(im)
-                    self.selected_position = clicked_position
-            else:
-                if (piece := self.board.get_piece(clicked_position)) and piece.side == self.turn.current_player:
-                    # Only allow for selecting position corresponding to a piece of a current players
-                    self.selected_position = clicked_position
+                    self.selected_position = None
+        if (piece := self.board.get_piece(clicked_position)) and piece.side == self.turn.current_player:
+            # Only allow for selecting position corresponding to a piece of a current players
+            self.selected_position = clicked_position
 
     def _get_clicked_position(self) -> Optional[Position]:
         if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
@@ -163,7 +163,7 @@ class Game:
                         (file + 1) * TILE_WIDTH,
                         (rank + 1) * TILE_HEIGHT,
                         0,
-                        piece.side.value * TILE_WIDTH,
+                        0 if piece.side == Side.WHITE else 1 * TILE_WIDTH,
                         IMAGE_LOCATION_FOR_PIECE[piece.__class__.__name__.lower()] * TILE_HEIGHT,
                         TILE_WIDTH,
                         TILE_HEIGHT,
@@ -195,7 +195,7 @@ class Game:
             BOARD_WIDTH,
             TILE_HEIGHT * 1,
             GAME_INFO_WIDTH,
-            GAME_INFO_HEIGHT - 2 * TILE_HEIGHT,
+            GAME_INFO_HEIGHT - 1 * TILE_HEIGHT,
             0,
         )
         for i, move in enumerate(self.move_tracker.moves):
