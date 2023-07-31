@@ -30,20 +30,20 @@ App()
 
 # todo:
 #  inprogress:
-#   - checkmate
+#   - swapping player perspective
 #  backlog
-#   - game over handling
+#   - game over handling / forfeit / starting new games,
 #   - pawn promotion
-#   - player perspective
-#   - add en passant,
-#   - forfeit / starting new games,
+#   - en passant,
 #   - scrolling move history,
 #   - connect to chess engine / api
 #   - short form algebraic notation
 #   - reverse & forward board through move history
+#   - auto chess variant
 #  done:
 #   - fix rank labels (wrong order),
 #   - long algebraic notation
 #   - castling
 #   - check
 #   - check shows in move history
+#   - checkmate

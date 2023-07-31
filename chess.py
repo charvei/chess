@@ -2,192 +2,11 @@ from dataclasses import dataclass
 from enum import Enum, Flag, auto
 from typing import Literal, Optional
 
-
-FILE_LABELS = ["a", "b", "c", "d", "e", "f", "g", "h"]
-RANK_LABELS = ["8", "7", "6", "5", "4", "3", "2", "1"]
+from pieces import ChessPiece, Position, Vector, Bishop, Rook, Knight, Queen, King, Side, Pawn
 
 
 class InvalidMove(Exception):
     """Raise when an invalid move is requested"""
-
-#
-# class Side(Enum):
-#     WHITE = 0
-#     BLACK = 1
-
-
-class Side(Flag):
-    WHITE = auto()
-    BLACK = auto()
-
-
-@dataclass(eq=True, frozen=True)
-class Position:
-    rank: int
-    file: int
-
-    @property
-    def algebraic_notation_name(self):
-        return f"{FILE_LABELS[self.file]}{RANK_LABELS[self.rank]}"
-
-    def __add__(self, x: "Position") -> "Position":
-        return Position(self.rank + x.rank, self.file + x.file)
-
-    def __str__(self) -> str:
-        return f"{{Pos:{self.rank},{self.file}}}"
-
-
-@dataclass
-class Vector:
-    rank: int
-    file: int
-    magnitude: int
-
-
-class ChessPiece:
-    def __init__(self, position: Position, side: Side):
-        self.position = position
-        self.side = side
-        self.has_been_moved = False
-
-    @property
-    def algebraic_notation_name(self):
-        return self.__class__.__name__[0].upper()
-
-    @property
-    def move_set(self) -> list[Vector]:
-        raise NotImplemented()
-
-    @property
-    def attack_set(self) -> list[Vector]:
-        """Unless overridden this will be the same as the move set"""
-        return self.move_set
-
-    @property
-    def special_moves(self) -> list[Vector]:
-        return []
-
-    def __str__(self) -> str:
-        return f"{{{self.side.name.title()} {self.__class__.__name__} at {str(self.position)}}}"
-
-
-class Pawn(ChessPiece):
-    """Pawn"""
-
-    @property
-    def algebraic_notation_name(self):
-        """Pawns are identified by the lack of a name"""
-        return ""
-
-    @property
-    def direction_of_movement(self):
-        return -1 if self.side == Side.WHITE else 1
-
-    @property
-    def default_rank(self):
-        return 6 if self.side == Side.WHITE else 1
-
-    @property
-    def move_set(self) -> list[Vector]:
-        """Get relative positions that are possible for this piece, not considering the state of the board"""
-        magnitude = 2 if self.position.rank == self.default_rank else 1
-        moves = [Vector(rank=1 * self.direction_of_movement, file=0, magnitude=magnitude)]
-        return moves
-
-    @property
-    def attack_set(self) -> list[Vector]:
-        return [
-            Vector(rank=1 * self.direction_of_movement, file=1, magnitude=1),
-            Vector(rank=1 * self.direction_of_movement, file=-1, magnitude=1),
-        ]
-
-
-class Rook(ChessPiece):
-    """"""
-
-    @property
-    def move_set(self) -> list[Vector]:
-        """Get relative positions that are possible for this piece, not considering the state of the board"""
-        return [
-            Vector(rank=1, file=0, magnitude=8),
-            Vector(rank=-1, file=0, magnitude=8),
-            Vector(rank=0, file=1, magnitude=8),
-            Vector(rank=0, file=-1, magnitude=8),
-        ]
-
-
-class Bishop(ChessPiece):
-    """"""
-
-    @property
-    def move_set(self) -> list[Vector]:
-        return [
-            Vector(rank=1, file=1, magnitude=8),
-            Vector(rank=1, file=-1, magnitude=8),
-            Vector(rank=-1, file=1, magnitude=8),
-            Vector(rank=-1, file=-1, magnitude=8),
-        ]
-
-
-class Knight(ChessPiece):
-    """"""
-
-    @property
-    def algebraic_notation_name(self):
-        return "N"
-
-    @property
-    def move_set(self) -> list[Vector]:
-        return [
-            Vector(rank=2, file=1, magnitude=1),
-            Vector(rank=2, file=-1, magnitude=1),
-            Vector(rank=-2, file=1, magnitude=1),
-            Vector(rank=-2, file=-1, magnitude=1),
-            Vector(rank=1, file=2, magnitude=1),
-            Vector(rank=1, file=-2, magnitude=1),
-            Vector(rank=-1, file=2, magnitude=1),
-            Vector(rank=-1, file=-2, magnitude=1),
-        ]
-
-
-class Queen(ChessPiece):
-    """"""
-
-    @property
-    def move_set(self) -> list[Vector]:
-        return [
-            Vector(rank=1, file=1, magnitude=8),
-            Vector(rank=1, file=-1, magnitude=8),
-            Vector(rank=-1, file=1, magnitude=8),
-            Vector(rank=-1, file=-1, magnitude=8),
-            Vector(rank=1, file=0, magnitude=8),
-            Vector(rank=-1, file=0, magnitude=8),
-            Vector(rank=0, file=1, magnitude=8),
-            Vector(rank=0, file=-1, magnitude=8),
-        ]
-
-
-class King(ChessPiece):
-    @property
-    def starting_position(self):
-        return Position(7, 4) if self.side == Side.WHITE else Position(0, 4)
-
-    @property
-    def move_set(self) -> list[Vector]:
-        return [
-            Vector(rank=1, file=1, magnitude=1),
-            Vector(rank=1, file=-1, magnitude=1),
-            Vector(rank=-1, file=1, magnitude=1),
-            Vector(rank=-1, file=-1, magnitude=1),
-            Vector(rank=1, file=0, magnitude=1),
-            Vector(rank=-1, file=0, magnitude=1),
-            Vector(rank=0, file=1, magnitude=1),
-            Vector(rank=0, file=-1, magnitude=1),
-        ]
-
-    @property
-    def special_moves(self) -> list[Vector]:
-        return [Vector(rank=0, file=2, magnitude=1), Vector(rank=0, file=-2, magnitude=1)]
 
 
 class MoveType(Enum):
@@ -203,18 +22,27 @@ class Move:
     dst: Position
     type: Optional[MoveType] = None
     is_check: bool = False
+    is_checkmate: bool = False
 
     @property
     def long_algebraic_notation(self) -> str:
         if self.type == MoveType.CASTLE:
             return "O-O" if self.dst.file == 6 else "O-O-O"
-        return f"{self.piece.algebraic_notation_name}{self.src.algebraic_notation_name}{self.type.value}{self.dst.algebraic_notation_name}{'+' if self.is_check else ''}"
+
+        if self.is_checkmate:
+            suffix = "#"
+        elif self.is_check:
+            suffix = "+"
+        else:
+            suffix = ""
+
+        return f"{self.piece.algebraic_notation_name}{self.src.algebraic_notation_name}{self.type.value}{self.dst.algebraic_notation_name}{suffix}"
 
 
 class ChessBoard:
     def __init__(self, pieces: Optional[list[ChessPiece]] = None):
         self.pieces = pieces if pieces else self.default_pieces()
-        self.board: dict[Position, ChessPiece] = {piece.position: piece for piece in self.pieces}
+        self.board: dict[Position, Optional[ChessPiece]] = {piece.position: piece for piece in self.pieces}
 
     def get_piece(self, position: Position) -> ChessPiece:
         return self.board.get(position)
@@ -259,7 +87,9 @@ class ChessBoard:
                 if (
                     move.piece.__class__ == King
                     and move.piece.position.rank == move.dst.rank
-                    and (move.dst.file == move.piece.position.file + 2 or move.dst.file == move.piece.position.file - 2)
+                    and (
+                        move.dst.file == move.piece.position.file + 2 or move.dst.file == move.piece.position.file - 2
+                    )
                 ):
                     return self._validate_castle(move.piece, move.piece.position, move.dst)
                 return MoveType.MOVE
@@ -298,44 +128,87 @@ class ChessBoard:
         for position in positions_to_be_clear:
             if self.get_piece(position) is not None:
                 raise InvalidMove("Cannot castle when pieces are in between King and Rook.")
-            if self.is_player_attacking_position(position, ~piece.side):
+            if self.get_pieces_attacking_position(position, ~piece.side):
                 raise InvalidMove("Cannot castle through positions that are currently attacked.")
 
-        if self.is_player_attacking_position(piece.position, ~piece.side):
+        if self.get_pieces_attacking_position(piece.position, ~piece.side):
             raise InvalidMove("Cannot castle when King is in check.")
 
         return MoveType.CASTLE
 
     def move(self, src: Position, dst: Position, player: Side):
         """Move a piece"""
-        move = Move(self.get_piece(src), src, dst)
-        move.type = self.validate_move(move, player)
+        with ProvisionalMove(src, dst, player, self) as pm:
+            # Raise an invalid move if new position results in ourselves being in check, provisional move will then
+            # handle rolling back
+            if self._get_pieces_checking_king(player):
+                raise InvalidMove("King would be in check.")
 
-        # Store the piece at dst in case we need to revert
-        dst_piece = self.get_piece(dst)
+            if pm.move.type == MoveType.CASTLE:
+                self._move_castling_rook(src, dst)
 
-        # Update board with new position
-        self.board[move.src] = None
-        self.board[move.dst] = move.piece
-        move.piece.position = dst
-        if move.type == MoveType.CASTLE:
-            self._move_castling_rook(src, dst)
+            # Does this move check the opponent?
+            if checking_pieces := self._get_pieces_checking_king(~player):
+                pm.move.is_check = True
+                if self._is_checkmate(checking_pieces, ~player):
+                    print(f"checkmate: {self._is_checkmate(checking_pieces, ~player)}")
+                    pm.move.is_checkmate = True
 
-        # After we move we determine if we've not resolved an existing check or moved into a check, and if so revert
-        if self.is_player_attacking_position(self._get_king(player).position, ~player):
-            self.board[move.src] = move.piece
-            self.board[move.dst] = dst_piece
-            move.piece.position = src
-            raise InvalidMove("King is in check.")
+            pm.commit()
 
-        move.piece.has_been_moved = True
+        return pm.move
 
-        # Did the move check the opponent?
-        if self.is_player_attacking_position(
-                self._get_king(~player).position, player):
-            move.is_check = True
+    def _is_checkmate(self, checking_pieces: list[ChessPiece], player_in_check: Side) -> bool:
+        """
+        Determine if opponent has any possible moves to get themselves out of check, if not then it is checkmate.
 
-        return move
+        Solutions to get out of check are:
+        - Moving king
+        - Taking pieces that are attacking king
+        - Blocking pieces attacking king
+
+        :param checking_pieces:
+        :return:
+        """
+        king = self._get_king(player_in_check)
+        for dst in [dst for dst in self.get_possible_moves(king, "move")]:
+            try:
+                with ProvisionalMove(king.position, dst, player_in_check, self):
+                    if not self._get_pieces_checking_king(player_in_check):
+                        print("Player can move or attack with King out of check.")
+                        return False
+            except InvalidMove:
+                continue
+
+        # Determine if checking piece be taken. Only a possible way out of check if there is one attacking piece
+        if len(checking_pieces) == 1 and (
+            counter_pieces := self.get_pieces_attacking_position(checking_pieces[0].position, player_in_check)
+        ):
+            # Check that this attack doesn't expose another check
+            for counter_piece in counter_pieces:
+                with ProvisionalMove(counter_piece.position, checking_pieces[0].position, player_in_check, self):
+                    if not self._get_pieces_checking_king(player_in_check):
+                        return False
+
+        # Determine if checking piece. Only a possible way out of check if there is only one attacking piece.
+        if len(checking_pieces) == 1:
+            rank_difference = checking_pieces[0].position.rank - king.position.rank
+            file_difference = checking_pieces[0].position.file - king.position.file
+            lower_abs_difference = abs(rank_difference if rank_difference < file_difference else file_difference)
+
+            # Get the vector of the attack and derive the inbetween positions from that.
+            vector = Vector(rank=int(rank_difference / lower_abs_difference), file=int(file_difference / lower_abs_difference), magnitude=lower_abs_difference)
+            inbetween_positions = [king.position + Position(rank=vector.rank * step, file=vector.file * step) for step in range(1, vector.magnitude)]
+
+            # Check if any of the player in check's pieces can move to an in between position and get king out of check.
+            for dst in inbetween_positions:
+                for blocking_pieces in self.get_pieces_attacking_position(dst, player_in_check, "move"):
+                    with ProvisionalMove(blocking_pieces.position, dst, player_in_check, self):
+                        if not self._get_pieces_checking_king(player_in_check):
+                            return False
+
+        # There are no solutions to getting out of check; checkmate.
+        return True
 
     def _move_castling_rook(self, src: Position, dst: Position):
         rook_src, rook_dst = (
@@ -346,12 +219,15 @@ class ChessBoard:
         self.board[rook_src] = None
         self.board[rook_dst] = self.get_piece(src)
 
-    def _get_king(self, player: Side):
+    def _get_pieces_checking_king(self, player: Side) -> list[ChessPiece]:
+        return self.get_pieces_attacking_position(self._get_king(player).position, ~player)
+
+    def _get_king(self, player: Side) -> ChessPiece:
         for piece in self.pieces:
             if piece.__class__ == King and piece.side == player:
                 return piece
 
-    def is_player_attacking_position(self, position: Position, player: Side):
+    def get_pieces_attacking_position(self, position: Position, player: Side, move_type: Literal["attack", "move"] = "attack") -> list[ChessPiece]:
         # Queen and knight attacks cover all attack vectors
         all_possible_attack_vectors = [
             # queen
@@ -373,6 +249,7 @@ class ChessBoard:
             Vector(rank=-1, file=2, magnitude=1),
             Vector(rank=-1, file=-2, magnitude=1),
         ]
+        pieces_attacking_position = []
         for vector in all_possible_attack_vectors:
             for step in range(vector.magnitude):
                 move = position + Position((1 + step) * vector.rank, (1 + step) * vector.file)
@@ -382,8 +259,9 @@ class ChessBoard:
                 else:
                     if (piece := self.get_piece(move)) and piece.side == player:
                         # We have found a piece, now to determine if it is attacking where we started
-                        if position in self.get_possible_moves(piece, "attack"):
-                            return True
+                        if position in self.get_possible_moves(piece, move_type):
+                            pieces_attacking_position.append(piece)
+        return pieces_attacking_position
 
     def default_pieces(self) -> list[ChessPiece]:
         pawns = []
@@ -408,3 +286,34 @@ class ChessBoard:
             King(position=Position(7, 4), side=Side.WHITE),
             King(position=Position(0, 4), side=Side.BLACK),
         ]
+
+
+class ProvisionalMove:
+    """"""
+
+    def __init__(self, src: Position, dst: Position, player: Side, board: ChessBoard):
+        self.player = player
+        self.chess_board = board
+        self._committed = False
+        self.original_dst_piece = None
+        self.move = Move(piece := self.chess_board.get_piece(src), src, dst)
+        self._was_piece_moved_before = piece.has_been_moved
+
+    def __enter__(self):
+        self.move.type = self.chess_board.validate_move(self.move, self.player)
+        self.original_dst_piece = self.chess_board.get_piece(self.move.dst)
+        self.chess_board.board[self.move.src] = None
+        self.chess_board.board[self.move.dst] = self.move.piece
+        self.move.piece.position = self.move.dst
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type or not self._committed:
+            # rollback
+            self.chess_board.board[self.move.src] = self.move.piece
+            self.chess_board.board[self.move.dst] = self.original_dst_piece
+            self.move.piece.position = self.move.src
+            self.move.piece.has_been_moved = self._was_piece_moved_before
+
+    def commit(self):
+        self._committed = True

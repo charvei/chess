@@ -104,6 +104,8 @@ class Game:
     def move(self, src: Position, dst: Position):
         move = self.board.move(src, dst, self.turn.current_player)
         self.move_tracker.add_move(move)
+        if move.is_checkmate:
+            self.winner = self.turn.current_player
         self.turn.toggle_current_player()
 
     def draw_board(self):
@@ -190,7 +192,6 @@ class Game:
         )
 
         # Move history
-        # todo handle scrolling
         pyxel.rect(
             BOARD_WIDTH,
             TILE_HEIGHT * 1,
