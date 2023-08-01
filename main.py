@@ -30,10 +30,9 @@ App()
 
 # todo:
 #  inprogress:
-#   - swapping player perspective
+#   - pawn promotion
 #  backlog
 #   - game over handling / forfeit / starting new games,
-#   - pawn promotion
 #   - en passant,
 #   - scrolling move history,
 #   - connect to chess engine / api
@@ -47,3 +46,4 @@ App()
 #   - check
 #   - check shows in move history
 #   - checkmate
+#   - swapping player perspective

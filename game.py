@@ -47,23 +47,13 @@ class Turn:
         self.last_update_time = datetime.now()
 
 
-class MoveTracker:
-    def __init__(self):
-        self.moves: list[Move] = []
-
-    def add_move(self, move: Move):
-        """"""
-        print(move.long_algebraic_notation)
-        self.moves.append(move)
-
-
 class Game:
     def __init__(self):
         self.turn = Turn()
-        self.player_perspective = Side.WHITE
+        self.player_perspective = Side.BLACK
         self.selected_position: Optional[Position] = None
         self.winner: Optional[Side] = None
-        self.move_tracker = MoveTracker()
+        self.move_history = []
         self.board = ChessBoard()
 
     def maybe_handle_left_click(self):
@@ -83,7 +73,12 @@ class Game:
     def _get_clicked_position(self) -> Optional[Position]:
         if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
             # convert screen position to board position
-            rank, file = int(pyxel.mouse_y / TILE_HEIGHT) - 1, int(pyxel.mouse_x / TILE_WIDTH) - 1
+            if self.player_perspective == Side.WHITE:
+                rank = int(pyxel.mouse_y / TILE_HEIGHT) - 1
+                file = int(pyxel.mouse_x / TILE_WIDTH) - 1
+            else:
+                rank = 7 - int(pyxel.mouse_y / TILE_HEIGHT) + 1
+                file = 7 - int(pyxel.mouse_x / TILE_WIDTH) + 1
 
             # Only return a position if a board tile was clicked
             if 0 <= rank < 8 and 0 <= file < 8:
@@ -103,10 +98,29 @@ class Game:
 
     def move(self, src: Position, dst: Position):
         move = self.board.move(src, dst, self.turn.current_player)
-        self.move_tracker.add_move(move)
+        print(move.long_algebraic_notation)
+        self.move_history.append(move)
         if move.is_checkmate:
             self.winner = self.turn.current_player
         self.turn.toggle_current_player()
+
+    def _x_index_for_file(self, file):
+        """
+        Get the x / horizontal index for a file, i.e. 0th corresponds to the first file in the board and so on.
+
+        This translates a tile to the appropriate screen coordinate.
+        """
+        return file + 1 if self.player_perspective == Side.WHITE else 7 - file + 1
+
+
+    def _y_index_for_rank(self, rank):
+        """
+        Get the y / vertical index for a rank, i.e. 0th corresponds to the first rank in the board and so on.
+
+        This translates a tile to the appropriate screen coordinate.
+        """
+        return rank + 1 if self.player_perspective == Side.WHITE else 7 - rank + 1
+
 
     def draw_board(self):
         # Initial background
@@ -116,7 +130,7 @@ class Game:
         for file in range(8):
             for y in (0, 9):
                 pyxel.text(
-                    TILE_WIDTH + file * TILE_WIDTH + TILE_WIDTH / 2 - 2,
+                    self._x_index_for_file(file) * TILE_WIDTH + TILE_WIDTH / 2 - 2,
                     y * TILE_HEIGHT + TILE_HEIGHT / 2 - 2,
                     FILE_LABELS[file],
                     col=7,
@@ -127,7 +141,7 @@ class Game:
             for x in (0, 9):
                 pyxel.text(
                     x * TILE_WIDTH + TILE_WIDTH / 2 - 1,
-                    TILE_HEIGHT + rank * TILE_HEIGHT + TILE_HEIGHT / 2 - 1,
+                    (self._y_index_for_rank(rank) * TILE_HEIGHT) + TILE_HEIGHT / 2 - 2,
                     RANK_LABELS[rank],
                     col=7,
                 )
@@ -147,8 +161,8 @@ class Game:
         # Draw selected border
         if self.selected_position:
             pyxel.blt(
-                TILE_WIDTH * 1 + self.selected_position.file * TILE_WIDTH,
-                TILE_HEIGHT * 1 + self.selected_position.rank * TILE_HEIGHT,
+                self._x_index_for_file(self.selected_position.file) * TILE_WIDTH,
+                self._y_index_for_rank(self.selected_position.rank) * TILE_HEIGHT,
                 2,
                 0,
                 0,
@@ -162,8 +176,8 @@ class Game:
             for rank in range(8):
                 if piece := self.board.get_piece(Position(rank, file)):
                     pyxel.blt(
-                        (file + 1) * TILE_WIDTH,
-                        (rank + 1) * TILE_HEIGHT,
+                        self._x_index_for_file(file) * TILE_WIDTH,
+                        self._y_index_for_rank(rank) * TILE_HEIGHT,
                         0,
                         0 if piece.side == Side.WHITE else 1 * TILE_WIDTH,
                         IMAGE_LOCATION_FOR_PIECE[piece.__class__.__name__.lower()] * TILE_HEIGHT,
@@ -199,10 +213,10 @@ class Game:
             GAME_INFO_HEIGHT - 1 * TILE_HEIGHT,
             0,
         )
-        for i, move in enumerate(self.move_tracker.moves):
+        for i, move in enumerate(self.move_history):
             label = f"{int(i/2) + 1}. " if not i % 2 else "   "
             pyxel.text(
-                BOARD_WIDTH,
+                BOARD_WIDTH + 5,
                 TILE_HEIGHT * 1 + (i * (TILE_HEIGHT / 2)) + 7,
                 f"{label}{move.long_algebraic_notation}",
                 7,
