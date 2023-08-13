@@ -82,11 +82,12 @@ class ChessBoard:
             for move_type, positions in move.piece.special_moves.items():
                 if move.dst in positions:
                     if (
-                            move.piece.__class__ == King
-                            and move.piece.position.rank == move.dst.rank
-                            and (
-                            move.dst.file == move.piece.position.file + 2 or move.dst.file == move.piece.position.file - 2
-                    )
+                        move.piece.__class__ == King
+                        and move.piece.position.rank == move.dst.rank
+                        and (
+                            move.dst.file == move.piece.position.file + 2
+                            or move.dst.file == move.piece.position.file - 2
+                        )
                     ):
                         return self._validate_castle(move.piece, move.piece.position, move.dst)
                     return move_type
@@ -204,8 +205,15 @@ class ChessBoard:
             lower_abs_difference = abs(rank_difference if rank_difference < file_difference else file_difference)
 
             # Get the vector of the attack and derive the inbetween positions from that.
-            vector = Vector(rank=int(rank_difference / lower_abs_difference), file=int(file_difference / lower_abs_difference), magnitude=lower_abs_difference)
-            inbetween_positions = [king.position + Position(rank=vector.rank * step, file=vector.file * step) for step in range(1, vector.magnitude)]
+            vector = Vector(
+                rank=int(rank_difference / lower_abs_difference),
+                file=int(file_difference / lower_abs_difference),
+                magnitude=lower_abs_difference,
+            )
+            inbetween_positions = [
+                king.position + Position(rank=vector.rank * step, file=vector.file * step)
+                for step in range(1, vector.magnitude)
+            ]
 
             # Check if any of the player in check's pieces can move to an in between position and get king out of check.
             for dst in inbetween_positions:
@@ -234,7 +242,9 @@ class ChessBoard:
             if piece.__class__ == King and piece.side == player:
                 return piece
 
-    def get_pieces_attacking_position(self, position: Position, player: Side, move_type: Literal["attack", "move"] = "attack") -> list[ChessPiece]:
+    def get_pieces_attacking_position(
+        self, position: Position, player: Side, move_type: Literal["attack", "move"] = "attack"
+    ) -> list[ChessPiece]:
         # Queen and knight attacks cover all attack vectors
         all_possible_attack_vectors = [
             # queen

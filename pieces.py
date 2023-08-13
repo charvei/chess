@@ -107,7 +107,6 @@ class Pawn(ChessPiece):
         ]
 
 
-
 class Rook(ChessPiece):
     """"""
 

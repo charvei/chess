@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
@@ -48,6 +49,16 @@ class Turn:
         self.last_update_time = datetime.now()
 
 
+@dataclass
+class MoveAnimation:
+    piece: ChessPiece
+    dst: Position
+    progress: float = 0.0
+
+    def update_progress(self):
+        self.progress += 0.25
+
+
 class Game:
     def __init__(self):
         self.turn = Turn()
@@ -56,16 +67,21 @@ class Game:
         self.winner: Optional[Side] = None
         self.move_history = []
         self.board = ChessBoard()
+        self.animations: dict[Position, MoveAnimation] = {}
 
     def maybe_handle_left_click(self):
         if clicked_position := self._get_clicked_position():
             if self.selected_position:
                 try:
                     self.move(self.selected_position, clicked_position)
-                    self.selected_position = None
-                    return
                 except InvalidMove as im:
                     print(im)
+                else:
+                    self.animations[clicked_position] = MoveAnimation(
+                        self.board.get_piece(clicked_position), self.selected_position
+                    )
+                    return
+                finally:
                     self.selected_position = None
         if (piece := self.board.get_piece(clicked_position)) and piece.side == self.turn.current_player:
             # Only allow for selecting position corresponding to a piece of a current players
@@ -113,7 +129,6 @@ class Game:
         """
         return file + 1 if self.player_perspective == Side.WHITE else 7 - file + 1
 
-
     def _y_index_for_rank(self, rank):
         """
         Get the y / vertical index for a rank, i.e. 0th corresponds to the first rank in the board and so on.
@@ -121,7 +136,6 @@ class Game:
         This translates a tile to the appropriate screen coordinate.
         """
         return rank + 1 if self.player_perspective == Side.WHITE else 7 - rank + 1
-
 
     def draw_board(self):
         # Initial background
@@ -175,10 +189,17 @@ class Game:
     def draw_pieces(self):
         for file in range(8):
             for rank in range(8):
+                if animation := self.animations.get(Position(rank, file)):
+                    draw_file = animation.dst.file + ((file - animation.dst.file) * animation.progress)
+                    draw_rank = animation.dst.rank + ((rank - animation.dst.rank) * animation.progress)
+                else:
+                    draw_file = file
+                    draw_rank = rank
+
                 if piece := self.board.get_piece(Position(rank, file)):
                     pyxel.blt(
-                        self._x_index_for_file(file) * TILE_WIDTH,
-                        self._y_index_for_rank(rank) * TILE_HEIGHT,
+                        self._x_index_for_file(draw_file) * TILE_WIDTH,
+                        self._y_index_for_rank(draw_rank) * TILE_HEIGHT,
                         0,
                         0 if piece.side == Side.WHITE else 1 * TILE_WIDTH,
                         IMAGE_LOCATION_FOR_PIECE[piece.__class__.__name__.lower()] * TILE_HEIGHT,
@@ -186,6 +207,15 @@ class Game:
                         TILE_HEIGHT,
                         colkey=2,
                     )
+
+    def update_animations(self):
+        completed = set()
+        for position, animation in self.animations.items():
+            animation.update_progress()
+            if animation.progress > 1:
+                completed.add(position)
+        for pos in completed:
+            self.animations.pop(pos)
 
     def draw_game_info(self):
         # Draw background for game info area

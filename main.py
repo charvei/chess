@@ -18,6 +18,7 @@ class App:
             self.game.turn.update_timer()
             self.game.maybe_handle_run_out_of_time()
             self.game.maybe_handle_winner_found()
+        self.game.update_animations()
 
     def draw(self):
         pyxel.cls(0)
@@ -30,17 +31,15 @@ App()
 
 # todo:
 #  inprogress:
-#   - pawn promotion
+#   - scrolling move history,
 #  backlog
 #   - game over handling / forfeit / starting new games,
+#   - dragging / dropping pieces
 #   - en passant,
-#   - scrolling move history,
 #   - connect to chess engine / api
 #   - short form algebraic notation
 #   - reverse & forward board through move history
 #   - auto chess variant
-#   - dragging / dropping pieces
-#   - animation
 #   - export game move history
 #   - playback from exported move history
 #  done:
@@ -51,3 +50,5 @@ App()
 #   - check shows in move history
 #   - checkmate
 #   - swapping player perspective
+#   - pawn promotion
+#   - animation
