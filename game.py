@@ -4,6 +4,7 @@ from typing import Optional
 import pyxel
 
 from chess import Side, Position, ChessBoard, InvalidMove, ChessPiece, Move
+from pieces import MoveEffect
 
 TILE_WIDTH = 16
 TILE_HEIGHT = 16
@@ -100,7 +101,7 @@ class Game:
         move = self.board.move(src, dst, self.turn.current_player)
         print(move.long_algebraic_notation)
         self.move_history.append(move)
-        if move.is_checkmate:
+        if MoveEffect.CHECKMATE in move.side_effects:
             self.winner = self.turn.current_player
         self.turn.toggle_current_player()
 
@@ -216,8 +217,8 @@ class Game:
         for i, move in enumerate(self.move_history):
             label = f"{int(i/2) + 1}. " if not i % 2 else "   "
             pyxel.text(
-                BOARD_WIDTH + 5,
-                TILE_HEIGHT * 1 + (i * (TILE_HEIGHT / 2)) + 7,
+                BOARD_WIDTH + 4,
+                TILE_HEIGHT * 1 + (i * (TILE_HEIGHT / 2)) + 6,
                 f"{label}{move.long_algebraic_notation}",
                 7,
             )

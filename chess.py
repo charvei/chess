@@ -1,18 +1,12 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, Flag, auto
 from typing import Literal, Optional
 
-from pieces import ChessPiece, Position, Vector, Bishop, Rook, Knight, Queen, King, Side, Pawn
+from pieces import ChessPiece, Position, Vector, Bishop, Rook, Knight, Queen, King, Side, Pawn, MoveType, MoveEffect
 
 
 class InvalidMove(Exception):
     """Raise when an invalid move is requested"""
-
-
-class MoveType(Enum):
-    MOVE = "-"
-    ATTACK = "x"
-    CASTLE = "O"
 
 
 @dataclass
@@ -21,20 +15,21 @@ class Move:
     src: Position
     dst: Position
     type: Optional[MoveType] = None
-    is_check: bool = False
-    is_checkmate: bool = False
+    side_effects: set[MoveEffect] = field(default_factory=set)
 
     @property
     def long_algebraic_notation(self) -> str:
         if self.type == MoveType.CASTLE:
             return "O-O" if self.dst.file == 6 else "O-O-O"
 
-        if self.is_checkmate:
-            suffix = "#"
-        elif self.is_check:
-            suffix = "+"
-        else:
-            suffix = ""
+        suffix = ""
+        if self.side_effects:
+            if MoveEffect.PROMOTION in self.side_effects:
+                suffix += MoveEffect.PROMOTION.value
+            if MoveEffect.CHECKMATE in self.side_effects:
+                suffix += MoveEffect.CHECKMATE.value
+            elif MoveEffect.CHECK in self.side_effects:
+                suffix += MoveEffect.CHECK.value
 
         return f"{self.piece.algebraic_notation_name}{self.src.algebraic_notation_name}{self.type.value}{self.dst.algebraic_notation_name}{suffix}"
 
@@ -50,7 +45,7 @@ class ChessBoard:
     def get_possible_moves(self, piece: ChessPiece, move_type: Literal["move", "attack"]) -> list[Position]:
         """"""
         moves = []
-        move_set = piece.move_set + piece.special_moves if move_type == "move" else piece.attack_set
+        move_set = piece.move_set if move_type == "move" else piece.attack_set
         for vector in move_set:
             for step in range(vector.magnitude):
                 move = piece.position + Position((1 + step) * vector.rank, (1 + step) * vector.file)
@@ -83,15 +78,21 @@ class ChessBoard:
                     raise InvalidMove("Attack is not in src piece's attack set")
         else:
             # Attempting to move to an empty square
-            if move.dst in self.get_possible_moves(move.piece, "move"):
-                if (
-                    move.piece.__class__ == King
-                    and move.piece.position.rank == move.dst.rank
-                    and (
-                        move.dst.file == move.piece.position.file + 2 or move.dst.file == move.piece.position.file - 2
+            # Check if a special move for the piece we are moving
+            for move_type, positions in move.piece.special_moves.items():
+                if move.dst in positions:
+                    if (
+                            move.piece.__class__ == King
+                            and move.piece.position.rank == move.dst.rank
+                            and (
+                            move.dst.file == move.piece.position.file + 2 or move.dst.file == move.piece.position.file - 2
                     )
-                ):
-                    return self._validate_castle(move.piece, move.piece.position, move.dst)
+                    ):
+                        return self._validate_castle(move.piece, move.piece.position, move.dst)
+                    return move_type
+
+            # it's a normal move
+            if move.dst in self.get_possible_moves(move.piece, "move"):
                 return MoveType.MOVE
             else:
                 raise InvalidMove("Move is not in src piece's move set")
@@ -147,12 +148,18 @@ class ChessBoard:
             if pm.move.type == MoveType.CASTLE:
                 self._move_castling_rook(src, dst)
 
+            # Is a pawn promotion
+            if isinstance(pm.move.piece, Pawn) and pm.move.dst.rank == pm.move.piece.promotion_rank:
+                # prompt user for promotion piece
+                self.board[dst] = Queen(dst, player)
+                pm.move.side_effects.add(MoveEffect.PROMOTION)
+
             # Does this move check the opponent?
             if checking_pieces := self._get_pieces_checking_king(~player):
-                pm.move.is_check = True
+                pm.move.side_effects.add(MoveEffect.CHECK)
                 if self._is_checkmate(checking_pieces, ~player):
                     print(f"checkmate: {self._is_checkmate(checking_pieces, ~player)}")
-                    pm.move.is_checkmate = True
+                    pm.move.side_effects.add(MoveEffect.CHECKMATE)
 
             pm.commit()
 
@@ -216,8 +223,8 @@ class ChessBoard:
             if dst.file == 6
             else (Position(src.rank, 0), Position(src.rank, 3))
         )
+        self.board[rook_dst] = self.get_piece(rook_src)
         self.board[rook_src] = None
-        self.board[rook_dst] = self.get_piece(src)
 
     def _get_pieces_checking_king(self, player: Side) -> list[ChessPiece]:
         return self.get_pieces_attacking_position(self._get_king(player).position, ~player)
@@ -296,8 +303,9 @@ class ProvisionalMove:
         self.chess_board = board
         self._committed = False
         self.original_dst_piece = None
-        self.move = Move(piece := self.chess_board.get_piece(src), src, dst)
-        self._was_piece_moved_before = piece.has_been_moved
+        self.src_piece = self.chess_board.get_piece(src)
+        self.move = Move(self.src_piece, src, dst)
+        self._was_piece_moved_before = self.src_piece.has_been_moved
 
     def __enter__(self):
         self.move.type = self.chess_board.validate_move(self.move, self.player)
@@ -305,6 +313,7 @@ class ProvisionalMove:
         self.chess_board.board[self.move.src] = None
         self.chess_board.board[self.move.dst] = self.move.piece
         self.move.piece.position = self.move.dst
+        self.src_piece.has_been_moved = True
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):

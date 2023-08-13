@@ -39,6 +39,10 @@ App()
 #   - short form algebraic notation
 #   - reverse & forward board through move history
 #   - auto chess variant
+#   - dragging / dropping pieces
+#   - animation
+#   - export game move history
+#   - playback from exported move history
 #  done:
 #   - fix rank labels (wrong order),
 #   - long algebraic notation

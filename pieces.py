@@ -1,6 +1,5 @@
 from dataclasses import dataclass
-from enum import Flag, auto
-
+from enum import Flag, auto, Enum
 
 FILE_LABELS = ["a", "b", "c", "d", "e", "f", "g", "h"]
 RANK_LABELS = ["8", "7", "6", "5", "4", "3", "2", "1"]
@@ -9,6 +8,18 @@ RANK_LABELS = ["8", "7", "6", "5", "4", "3", "2", "1"]
 class Side(Flag):
     WHITE = auto()
     BLACK = auto()
+
+
+class MoveType(Enum):
+    MOVE = "-"
+    ATTACK = "x"
+    CASTLE = "O"
+
+
+class MoveEffect(Enum):
+    CHECK = "+"
+    CHECKMATE = "#"
+    PROMOTION = "=Q"
 
 
 @dataclass(eq=True, frozen=True)
@@ -25,7 +36,6 @@ class Position:
 
     def __str__(self) -> str:
         return f"{FILE_LABELS[self.file]}{RANK_LABELS[self.rank]}"
-        # return f"{{Pos:{self.rank},{self.file}}}"
 
 
 @dataclass
@@ -55,8 +65,8 @@ class ChessPiece:
         return self.move_set
 
     @property
-    def special_moves(self) -> list[Vector]:
-        return []
+    def special_moves(self) -> dict[MoveType, list[Position]]:
+        return {}
 
     def __str__(self) -> str:
         return f"{{{self.side.name.title()} {self.__class__.__name__} at {str(self.position)}}}"
@@ -79,6 +89,10 @@ class Pawn(ChessPiece):
         return 6 if self.side == Side.WHITE else 1
 
     @property
+    def promotion_rank(self):
+        return 0 if self.side == Side.WHITE else 7
+
+    @property
     def move_set(self) -> list[Vector]:
         """Get relative positions that are possible for this piece, not considering the state of the board"""
         magnitude = 2 if self.position.rank == self.default_rank else 1
@@ -91,6 +105,7 @@ class Pawn(ChessPiece):
             Vector(rank=1 * self.direction_of_movement, file=1, magnitude=1),
             Vector(rank=1 * self.direction_of_movement, file=-1, magnitude=1),
         ]
+
 
 
 class Rook(ChessPiece):
@@ -177,5 +192,9 @@ class King(ChessPiece):
         ]
 
     @property
-    def special_moves(self) -> list[Vector]:
-        return [Vector(rank=0, file=2, magnitude=1), Vector(rank=0, file=-2, magnitude=1)]
+    def special_moves(self) -> dict[MoveType, list[Position]]:
+        if not self.has_been_moved:
+            return {
+                MoveType.CASTLE: [Position(rank=self.position.rank, file=2), Position(rank=self.position.rank, file=6)]
+            }
+        return {}
