@@ -1,10 +1,11 @@
 import pyxel
-from game import Game, BOARD_WIDTH, GAME_INFO_WIDTH, BOARD_HEIGHT
+from game import Game  # , BOARD_WIDTH, GAME_INFO_WIDTH, BOARD_HEIGHT
+from ui import BOARD_WIDTH, GAME_INFO_WIDTH, BOARD_HEIGHT
 
 
 class App:
     def __init__(self):
-        pyxel.init(BOARD_WIDTH + GAME_INFO_WIDTH, BOARD_HEIGHT, title="chess", fps=40)
+        pyxel.init(BOARD_WIDTH + GAME_INFO_WIDTH, BOARD_HEIGHT, title="chess", fps=60)
         pyxel.load("./assets/PIECES.pyxres")
         pyxel.mouse(visible=True)
         self.game = Game()
@@ -12,6 +13,7 @@ class App:
 
     def update(self):
         """"""
+
         if not self.game.winner:
             self.game.maybe_handle_left_click()
             self.game.maybe_handle_right_click()
@@ -22,9 +24,7 @@ class App:
 
     def draw(self):
         pyxel.cls(0)
-        self.game.draw_board()
-        self.game.draw_pieces()
-        self.game.draw_game_info()
+        self.game.draw()
 
 
 App()
