@@ -1,11 +1,10 @@
-from dataclasses import dataclass
-from typing import Optional
+from typing import Callable
 
 import pyxel
 
 from chess import ChessBoard, Move
-from game import Turn
-from pieces import ChessPiece, Position, Side
+from game import Turn, Game, MoveAnimation
+from pieces import Position, Side
 
 
 TILE_WIDTH = 16
@@ -42,18 +41,7 @@ class UIComponent:
         raise NotImplementedError
 
     def coords_are_within_element(self, x: int, y: int):
-        print(x, y)
         return self.x <= x < self.x + self.width and self.y <= y < self.y + self.height
-
-
-@dataclass
-class MoveAnimation:
-    piece: ChessPiece
-    dst: Position
-    progress: float = 0.0
-
-    def update_progress(self):
-        self.progress += 0.25
 
 
 class Board(UIComponent):
@@ -63,14 +51,11 @@ class Board(UIComponent):
         self.width = TILE_WIDTH * 10
         self.height = TILE_HEIGHT * 10
         self.background_colour = 5
-        # self.animations: dict[Position, MoveAnimation] = {}
         self.player_perspective = Side.WHITE
 
     def draw(
         self,
-        board: ChessBoard,
-        animations: dict[Position, MoveAnimation],
-        selected_position: Optional[Position] = None,
+        game: Game,
     ) -> None:
         pyxel.rect(0, 0, TILE_WIDTH * 10, TILE_HEIGHT * 10, 5)
 
@@ -107,10 +92,10 @@ class Board(UIComponent):
                 )
 
         # Draw selected border
-        if selected_position:
+        if game.selected_position:
             pyxel.blt(
-                self._x_index_for_file(selected_position.file) * TILE_WIDTH,
-                self._y_index_for_rank(selected_position.rank) * TILE_HEIGHT,
+                self._x_index_for_file(game.selected_position.file) * TILE_WIDTH,
+                self._y_index_for_rank(game.selected_position.rank) * TILE_HEIGHT,
                 2,
                 0,
                 0,
@@ -119,7 +104,7 @@ class Board(UIComponent):
                 colkey=2,
             )
 
-        self.draw_pieces(board, animations)
+        self.draw_pieces(game.board, game.animations)
 
     def draw_pieces(self, board: ChessBoard, animations: dict[Position, MoveAnimation]):
         for file in range(8):
@@ -170,12 +155,13 @@ class GameInfo(UIComponent):
         self.height = GAME_INFO_HEIGHT
         self.background_colour = 6
         # self.subcomponents = [PlayerTimers(), GameHistory()]
-        self.subcomponents = [PlayerTimers(), MoveHistory()]
+        self.subcomponents = [PlayerTimers(), MoveHistory(), GameControls()]
 
     def draw(self, turn: Turn, move_history: list[Move]):
         pyxel.rect(self.x, self.y, self.width, self.height, self.background_colour)
         self.subcomponents[0].draw(turn)
         self.subcomponents[1].draw(move_history)
+        self.subcomponents[2].draw()
         # for component in self.subcomponents:
         #     component.draw(turn)
 
@@ -212,10 +198,28 @@ class MoveHistory(UIComponent):
         self.width = GAME_INFO_WIDTH
         self.height = 8 * TILE_HEIGHT
         self.background_colour = 0
+        self.subcomponents = [
+            ScrollUpButton(self._decrement_move_history_frame),
+            ScrollDownButton(self._increment_move_history_frame),
+        ]
+        self.move_history_window_size = int(8 - 1) * 2 + 1
+        self.move_history_frame = -1 * self.move_history_window_size
+
+    def calc_move_history_frame(self, move_history: list) -> int:
+        return self.move_history_frame if len(move_history) > self.move_history_window_size else -1 * len(move_history)
+
+    def _increment_move_history_frame(self, move_history: list):
+        if abs(self.move_history_frame) > self.move_history_window_size:
+            self.move_history_frame += 1
+            print(self.move_history_frame)
+
+    def _decrement_move_history_frame(self, move_history: list):
+        if abs(self.move_history_frame) < len(move_history):
+            self.move_history_frame -= 1
+            print(self.move_history_frame)
 
     def draw(self, move_history: list[Move]):
         move_history_height_tiles = (GAME_INFO_HEIGHT / TILE_HEIGHT) - 2
-        # Move history
         pyxel.rect(
             BOARD_WIDTH,
             TILE_HEIGHT * 1,
@@ -224,18 +228,9 @@ class MoveHistory(UIComponent):
             0,
         )
 
-        # number of lines of text that can be presented at once in the move history box
-        # There are 2 lines of text per tile
-        move_history_window_size = int(move_history_height_tiles - 1) * 2 + 1
-        move_history_frame_index = (
-            int(-1 * move_history_window_size)
-            if len(move_history) > move_history_window_size
-            else -1 * len(move_history)
-        )
-
         if len(move_history):
             for draw_pos, move_index in enumerate(
-                range(len(move_history) + move_history_frame_index, len(move_history))
+                range(len(move_history) + self.calc_move_history_frame(move_history), len(move_history))
             ):
                 label = f"{int(move_index / 2) + 1}. " if not move_index % 2 else "   "
                 pyxel.text(
@@ -245,28 +240,92 @@ class MoveHistory(UIComponent):
                     7,
                 )
 
-        arrow_width = 8
-        arrow_height = 8
-        # top arrow
+        for component in self.subcomponents:
+            component.draw()
+
+
+class ScrollUpButton(UIComponent):
+    def __init__(self, on_click: Callable):
+        self.width = 8
+        self.height = 8
+        self.x = BOARD_WIDTH + GAME_INFO_WIDTH - self.width - 1
+        self.y = TILE_HEIGHT + 4
+        self.on_click = on_click
+
+    def draw(self):
         pyxel.blt(
-            BOARD_WIDTH + GAME_INFO_WIDTH - arrow_width - 1,
-            TILE_HEIGHT + 4,
+            self.x,
+            self.y,
             1,
             0,
             0,
-            arrow_width,
-            arrow_height,
+            self.width,
+            self.height,
             colkey=2,
         )
 
-        # bottom arrow
+    def on_click(self, move_history):
+        self.on_click(move_history)
+
+
+class ScrollDownButton(UIComponent):
+    def __init__(self, on_click: Callable):
+        self.width = 8
+        self.height = 8
+        self.x = BOARD_WIDTH + GAME_INFO_WIDTH - self.width - 1
+        self.y = BOARD_HEIGHT - TILE_HEIGHT - self.height - 3
+        self.on_click = on_click
+
+    def draw(self):
         pyxel.blt(
-            BOARD_WIDTH + GAME_INFO_WIDTH - arrow_width - 1,
-            BOARD_HEIGHT - TILE_HEIGHT - arrow_height - 3,
+            self.x,
+            self.y,
             1,
             0,
-            arrow_height,
-            arrow_width,
-            arrow_height,
+            self.height,
+            self.width,
+            self.height,
             colkey=2,
         )
+
+    def on_click(self, move_history):
+        self.on_click(move_history)
+
+
+class GameControls(UIComponent):
+    def __init__(self):
+        self.x = BOARD_WIDTH
+        self.y = TILE_HEIGHT * 9
+        self.width = GAME_INFO_WIDTH
+        self.height = TILE_HEIGHT
+        self.background_colour = 7
+        self.subcomponents = [
+            Button(BOARD_WIDTH, self.y, 0, 64),
+            Button(BOARD_WIDTH + 2 * TILE_WIDTH, self.y, 0, 80),
+        ]
+
+    def draw(self):
+        pyxel.rect(
+            self.x,
+            self.y,
+            self.width,
+            self.height,
+            self.background_colour,
+        )
+
+        for component in self.subcomponents:
+            component.draw()
+
+
+class Button(UIComponent):
+    def __init__(self, x, y, u, v):
+        self.x = x
+        self.y = y
+        self.width = TILE_WIDTH * 2
+        self.height = TILE_HEIGHT
+        self.background_colour = 0
+        self.u = u
+        self.v = v
+
+    def draw(self):
+        pyxel.blt(self.x, self.y, 1, self.u, self.v, self.width, self.height, colkey=2)

@@ -1,6 +1,22 @@
+from typing import Optional
+
 import pyxel
-from game import Game  # , BOARD_WIDTH, GAME_INFO_WIDTH, BOARD_HEIGHT
-from ui import BOARD_WIDTH, GAME_INFO_WIDTH, BOARD_HEIGHT
+
+from chess import InvalidMove
+from game import Game, MoveAnimation
+from pieces import Position, Side
+from ui import (
+    Board,
+    TILE_HEIGHT,
+    TILE_WIDTH,
+    GameInfo,
+    UIComponent,
+    ScrollUpButton,
+    ScrollDownButton,
+    BOARD_WIDTH,
+    GAME_INFO_WIDTH,
+    BOARD_HEIGHT,
+)
 
 
 class App:
@@ -9,22 +25,89 @@ class App:
         pyxel.load("./assets/PIECES.pyxres")
         pyxel.mouse(visible=True)
         self.game = Game()
+        self.board_ui = Board()
+        self.game_info_ui = GameInfo()
         pyxel.run(self.update, self.draw)
 
     def update(self):
         """"""
-
         if not self.game.winner:
-            self.game.maybe_handle_left_click()
-            self.game.maybe_handle_right_click()
-            self.game.turn.update_timer()
-            self.game.maybe_handle_run_out_of_time()
-            self.game.maybe_handle_winner_found()
-        self.game.update_animations()
+            self.maybe_handle_left_click()
+            self.maybe_handle_right_click()
+            self.game.update()
+            self.maybe_handle_run_out_of_time()
+            self.maybe_handle_winner_found()
 
     def draw(self):
         pyxel.cls(0)
-        self.game.draw()
+        self.board_ui.draw(self.game)
+        self.game_info_ui.draw(self.game.turn, self.game.move_history)
+
+    def maybe_handle_left_click(self):
+        if component := self._get_clicked_ui_component():
+            print(component)
+            if component.__class__ == Board:
+                self.handle_board_left_click()
+            elif component.__class__ == ScrollUpButton or component.__class__ == ScrollDownButton:
+                component.on_click(self.game.move_history)
+
+    def _get_clicked_ui_component(self) -> UIComponent:
+        # todo: this is just a quick implementation, needs to handle any level of depth
+        if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
+            ui_components = [self.board_ui, self.game_info_ui]
+            for component in ui_components:
+                if component.coords_are_within_element(pyxel.mouse_x, pyxel.mouse_y):
+                    for subcomponent in component.subcomponents:
+                        if subcomponent.coords_are_within_element(pyxel.mouse_x, pyxel.mouse_y):
+                            for subsubcomponent in subcomponent.subcomponents:
+                                if subsubcomponent.coords_are_within_element(pyxel.mouse_x, pyxel.mouse_y):
+                                    return subsubcomponent
+                            return subcomponent
+                    return component
+
+    def handle_board_left_click(self):
+        if clicked_position := self._get_clicked_position():
+            if self.game.selected_position:
+                try:
+                    self.game.move(self.game.selected_position, clicked_position)
+                except InvalidMove as im:
+                    print(im)
+                else:
+                    self.game.animations[clicked_position] = MoveAnimation(
+                        self.game.board.get_piece(clicked_position), self.game.selected_position
+                    )
+                    return
+                finally:
+                    self.game.selected_position = None
+        if (piece := self.game.board.get_piece(clicked_position)) and piece.side == self.game.turn.current_player:
+            # Only allow for selecting position corresponding to a piece of a current players
+            self.game.selected_position = clicked_position
+
+    def _get_clicked_position(self) -> Optional[Position]:
+        if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
+            # convert screen position to board position
+            if self.game.player_perspective == Side.WHITE:
+                rank = int(pyxel.mouse_y / TILE_HEIGHT) - 1
+                file = int(pyxel.mouse_x / TILE_WIDTH) - 1
+            else:
+                rank = 7 - int(pyxel.mouse_y / TILE_HEIGHT) + 1
+                file = 7 - int(pyxel.mouse_x / TILE_WIDTH) + 1
+
+            # Only return a position if a board tile was clicked
+            if 0 <= rank < 8 and 0 <= file < 8:
+                return Position(rank, file)
+
+    def maybe_handle_right_click(self):
+        if pyxel.btnp(pyxel.MOUSE_BUTTON_RIGHT):
+            self.game.selected_position = None
+
+    def maybe_handle_run_out_of_time(self):
+        if self.game.turn.timer[self.game.turn.current_player] <= 0:
+            self.game.winner = Side.WHITE if self.game.turn.current_player == Side.BLACK else Side.BLACK
+
+    def maybe_handle_winner_found(self):
+        if self.game.winner:
+            print(f"Winner: {self.game.winner.name.title()}")
 
 
 App()
