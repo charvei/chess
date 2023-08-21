@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum, Flag, auto
 from typing import Literal, Optional
 
 from pieces import ChessPiece, Position, Vector, Bishop, Rook, Knight, Queen, King, Side, Pawn, MoveType, MoveEffect
@@ -189,7 +188,7 @@ class ChessBoard:
             except InvalidMove:
                 continue
 
-        # Determine if checking piece be taken. Only a possible way out of check if there is one attacking piece
+        # Determine if checking piece can be taken. Only a possible way out of check if there is one attacking piece
         if len(checking_pieces) == 1 and (
             counter_pieces := self.get_pieces_attacking_position(checking_pieces[0].position, player_in_check)
         ):
@@ -199,29 +198,37 @@ class ChessBoard:
                     if not self._get_pieces_checking_king(player_in_check):
                         return False
 
-        # Determine if checking piece. Only a possible way out of check if there is only one attacking piece.
-        if len(checking_pieces) == 1:
-            rank_difference = checking_pieces[0].position.rank - king.position.rank
-            file_difference = checking_pieces[0].position.file - king.position.file
-            lower_abs_difference = abs(rank_difference if rank_difference < file_difference else file_difference)
-
-            # Get the vector of the attack and derive the inbetween positions from that.
-            vector = Vector(
-                rank=int(rank_difference / lower_abs_difference),
-                file=int(file_difference / lower_abs_difference),
-                magnitude=lower_abs_difference,
-            )
-            inbetween_positions = [
-                king.position + Position(rank=vector.rank * step, file=vector.file * step)
-                for step in range(1, vector.magnitude)
-            ]
-
             # Check if any of the player in check's pieces can move to an in between position and get king out of check.
-            for dst in inbetween_positions:
-                for blocking_pieces in self.get_pieces_attacking_position(dst, player_in_check, "move"):
-                    with ProvisionalMove(blocking_pieces.position, dst, player_in_check, self):
-                        if not self._get_pieces_checking_king(player_in_check):
-                            return False
+            # Only a possible way out of check if there is only one attacking piece.
+            if len(checking_pieces) == 1:
+                rank_difference = checking_pieces[0].position.rank - king.position.rank
+                file_difference = checking_pieces[0].position.file - king.position.file
+                lower_abs_diff, higher_abs_diff = min(abs(rank_difference), abs(file_difference)), max(
+                    abs(rank_difference), abs(file_difference)
+                )
+                if lower_abs_diff == 0:
+                    vector = Vector(
+                        rank=int(rank_difference / higher_abs_diff),
+                        file=int(file_difference / higher_abs_diff),
+                        magnitude=higher_abs_diff,
+                    )
+                else:
+                    vector = Vector(
+                        rank=int(rank_difference / lower_abs_diff),
+                        file=int(file_difference / lower_abs_diff),
+                        magnitude=lower_abs_diff,
+                    )
+
+                inbetween_positions = [
+                    king.position + Position(rank=vector.rank * step, file=vector.file * step)
+                    for step in range(1, vector.magnitude)
+                ]
+
+                for dst in inbetween_positions:
+                    for blocking_pieces in self.get_pieces_attacking_position(dst, player_in_check, "move"):
+                        with ProvisionalMove(blocking_pieces.position, dst, player_in_check, self):
+                            if not self._get_pieces_checking_king(player_in_check):
+                                return False
 
         # There are no solutions to getting out of check; checkmate.
         return True
@@ -286,6 +293,7 @@ class ChessBoard:
         for file in [0, 1, 2, 3, 4, 5, 6, 7, 8]:
             pawns.append(Pawn(position=Position(1, file), side=Side.BLACK))
             pawns.append(Pawn(position=Position(6, file), side=Side.WHITE))
+            pass
         return pawns + [
             Rook(position=Position(0, 0), side=Side.BLACK),
             Rook(position=Position(0, 7), side=Side.BLACK),

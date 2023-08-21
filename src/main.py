@@ -3,7 +3,7 @@ from typing import Optional
 import pyxel
 
 from chess import InvalidMove
-from game import Game, MoveAnimation
+from game import Game, MoveAnimation, GameEvent
 from pieces import Position, Side
 from ui import (
     Board,
@@ -16,17 +16,19 @@ from ui import (
     BOARD_WIDTH,
     GAME_INFO_WIDTH,
     BOARD_HEIGHT,
+    Button,
 )
 
 
 class App:
     def __init__(self):
         pyxel.init(BOARD_WIDTH + GAME_INFO_WIDTH, BOARD_HEIGHT, title="chess", fps=60)
-        pyxel.load("./assets/PIECES.pyxres")
+        pyxel.load("../assets/PIECES.pyxres")
         pyxel.mouse(visible=True)
         self.game = Game()
+        self.ui_events = list()
         self.board_ui = Board()
-        self.game_info_ui = GameInfo()
+        self.game_info_ui = GameInfo(self.ui_events)
         pyxel.run(self.update, self.draw)
 
     def update(self):
@@ -35,21 +37,35 @@ class App:
             self.maybe_handle_left_click()
             self.maybe_handle_right_click()
             self.game.update()
+            self.handle_game_events()
             self.maybe_handle_run_out_of_time()
             self.maybe_handle_winner_found()
+        self.game.update_animations()
 
     def draw(self):
         pyxel.cls(0)
         self.board_ui.draw(self.game)
-        self.game_info_ui.draw(self.game.turn, self.game.move_history)
+        # We copy() this list so the ui gets the value not reference, so it can react to state changes better
+        self.game_info_ui.draw(self.game.turn, self.game.move_history.copy())
+
+    def handle_game_events(self):
+        while self.ui_events:
+            event = self.ui_events.pop()
+            if event == GameEvent.RESIGN:
+                print("handling resign")
+                self.game.winner = ~self.game.turn.current_player
+            if event == GameEvent.OFFER_DRAW:
+                print("handling draw offer")
 
     def maybe_handle_left_click(self):
         if component := self._get_clicked_ui_component():
             print(component)
             if component.__class__ == Board:
                 self.handle_board_left_click()
-            elif component.__class__ == ScrollUpButton or component.__class__ == ScrollDownButton:
+            elif isinstance(component, ScrollUpButton) or isinstance(component, ScrollDownButton):
                 component.on_click(self.game.move_history)
+            elif isinstance(component, Button):
+                component.on_click()
 
     def _get_clicked_ui_component(self) -> UIComponent:
         # todo: this is just a quick implementation, needs to handle any level of depth
@@ -114,11 +130,10 @@ App()
 
 # todo:
 #  inprogress:
-#   - scrolling move history,
-#  backlog
 #   - game over handling / forfeit / starting new games,
-#   - dragging / dropping pieces
+#  backlog
 #   - en passant,
+#   - dragging / dropping pieces
 #   - connect to chess engine / api
 #   - short form algebraic notation
 #   - reverse & forward board through move history
@@ -135,3 +150,5 @@ App()
 #   - swapping player perspective
 #   - pawn promotion
 #   - animation
+#   - scrolling move history - polish,
+#   - checkmate  on edge rank bug
