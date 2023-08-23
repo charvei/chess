@@ -36,6 +36,7 @@ class UIComponent:
     height: float
     background_colour: int
     subcomponents: list["UIComponent"] = []
+    hidden: bool = False
 
     def draw(self, *args, **kwargs) -> None:
         raise NotImplementedError
@@ -352,3 +353,46 @@ class Button(UIComponent, Clickable):
 
     def on_click(self) -> None:
         self.on_click()
+
+
+class GameOutcomeModal(UIComponent):
+    def __init__(self, ui_events: list[GameEvent]) -> None:
+        self.x = TILE_WIDTH * 2
+        self.y = TILE_HEIGHT * 2
+        self.width = BOARD_WIDTH - (TILE_WIDTH * 4)
+        self.height = BOARD_HEIGHT - (TILE_HEIGHT * 4)
+        self.background_colour = 0
+        self.text_colour = 1
+        self.subcomponents = [
+            Button(
+                self.x + TILE_WIDTH,
+                self.y + self.height - TILE_HEIGHT * 2,
+                0,
+                96,
+                lambda: self.publish_restart_game(ui_events),
+            )
+        ]
+        self.hidden = True
+
+    def publish_restart_game(self, ui_events: list[GameEvent]) -> None:
+        ui_events.append(GameEvent.RESTART_GAME)
+
+    def draw(self, game: Game) -> None:
+        if self.hidden:
+            return
+        assert game.outcome
+        if game.outcome.winner == Side.WHITE:
+            self.background_colour = 0
+            self.text_colour = 15
+        else:
+            self.background_colour = 0
+            self.text_colour = 4
+        pyxel.rect(self.x, self.y, self.width, self.height, self.background_colour)
+        pyxel.text(
+            self.x + 1 * TILE_WIDTH,
+            self.y + 1 * TILE_HEIGHT,
+            f"{game.outcome.winner.name.title()} wins\n\nby {game.outcome.reason.value}!",
+            self.text_colour,
+        )
+        for component in self.subcomponents:
+            component.draw()

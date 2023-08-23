@@ -3,7 +3,7 @@ from typing import Optional
 import pyxel
 
 from chess import InvalidMove
-from game import Game, MoveAnimation, GameEvent
+from game import Game, MoveAnimation, GameEvent, Win, WinReason
 from pieces import Position, Side
 from ui import (
     Board,
@@ -17,6 +17,7 @@ from ui import (
     GAME_INFO_WIDTH,
     BOARD_HEIGHT,
     Button,
+    GameOutcomeModal,
 )
 
 
@@ -29,17 +30,18 @@ class App:
         self.ui_events = list()
         self.board_ui = Board()
         self.game_info_ui = GameInfo(self.ui_events)
+        self.outcome_modal = GameOutcomeModal(self.ui_events)
         pyxel.run(self.update, self.draw)
 
     def update(self):
         """"""
-        if not self.game.winner:
-            self.maybe_handle_left_click()
-            self.maybe_handle_right_click()
+        self.maybe_handle_left_click()
+        self.maybe_handle_right_click()
+        self.handle_game_events()
+        if not self.game.outcome:
             self.game.update()
-            self.handle_game_events()
             self.maybe_handle_run_out_of_time()
-            self.maybe_handle_winner_found()
+        self.maybe_handle_winner_found()
         self.game.update_animations()
 
     def draw(self):
@@ -47,15 +49,20 @@ class App:
         self.board_ui.draw(self.game)
         # We copy() this list so the ui gets the value not reference, so it can react to state changes better
         self.game_info_ui.draw(self.game.turn, self.game.move_history.copy())
+        self.outcome_modal.draw(self.game)
 
     def handle_game_events(self):
         while self.ui_events:
             event = self.ui_events.pop()
             if event == GameEvent.RESIGN:
                 print("handling resign")
-                self.game.winner = ~self.game.turn.current_player
+                self.game.outcome = Win(~self.game.turn.current_player, WinReason.RESIGNATION)
             if event == GameEvent.OFFER_DRAW:
                 print("handling draw offer")
+            if event == GameEvent.RESTART_GAME:
+                print("handling restart game")
+                self.game = Game()
+                self.outcome_modal.hidden = True
 
     def maybe_handle_left_click(self):
         if component := self._get_clicked_ui_component():
@@ -70,7 +77,11 @@ class App:
     def _get_clicked_ui_component(self) -> UIComponent:
         # todo: this is just a quick implementation, needs to handle any level of depth
         if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
-            ui_components = [self.board_ui, self.game_info_ui]
+            ui_components = [
+                component
+                for component in [self.outcome_modal, self.board_ui, self.game_info_ui]
+                if not component.hidden
+            ]
             for component in ui_components:
                 if component.coords_are_within_element(pyxel.mouse_x, pyxel.mouse_y):
                     for subcomponent in component.subcomponents:
@@ -119,19 +130,22 @@ class App:
 
     def maybe_handle_run_out_of_time(self):
         if self.game.turn.timer[self.game.turn.current_player] <= 0:
-            self.game.winner = Side.WHITE if self.game.turn.current_player == Side.BLACK else Side.BLACK
+            self.game.outcome = Win(~self.game.turn.current_player, WinReason.TIME)
 
     def maybe_handle_winner_found(self):
-        if self.game.winner:
-            print(f"Winner: {self.game.winner.name.title()}")
+        if self.game.outcome:
+            self.outcome_modal.hidden = False
 
 
 App()
 
 # todo:
 #  inprogress:
-#   - game over handling / forfeit / starting new games,
 #  backlog
+#   - offer draw / resign confirmation ui
+#   - create game ui (e.g. timer settings)
+#   - outcome / score shown in move history
+#   - stalemate outcome
 #   - en passant,
 #   - dragging / dropping pieces
 #   - connect to chess engine / api
@@ -152,3 +166,4 @@ App()
 #   - animation
 #   - scrolling move history - polish,
 #   - checkmate  on edge rank bug
+#   - game over handling / forfeit / starting new games,

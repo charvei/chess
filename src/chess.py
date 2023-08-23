@@ -351,7 +351,7 @@ class Turn:
     def __init__(self):
         self.current_player = Side.WHITE
         # Currently hard coded for 10min games
-        self.timer = {Side.WHITE: 10 * 60 * 1000, Side.BLACK: 10 * 60 * 1000}
+        self.timer = {Side.WHITE: 10 * 60 * 100, Side.BLACK: 10 * 60 * 1000}
         self.last_update_time = datetime.now()
 
     def toggle_current_player(self):

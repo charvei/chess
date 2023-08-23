@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
+from typing import Optional, Literal
 
 from chess import Side, Position, ChessBoard, ChessPiece, Turn
 from pieces import MoveEffect
@@ -19,6 +19,29 @@ class MoveAnimation:
 class GameEvent(Enum):
     OFFER_DRAW = 1
     RESIGN = 2
+    RESTART_GAME = 3
+
+
+class WinReason(Enum):
+    CHECKMATE = "checkmate"
+    RESIGNATION = "resignation"
+    TIME = "time"
+
+
+class DrawReason(Enum):
+    STALEMATE = "stalemate"
+    AGREEMENT = "agreement"
+
+
+@dataclass
+class Win:
+    winner: Side
+    reason: WinReason
+
+
+@dataclass
+class Draw:
+    reason: DrawReason
 
 
 class Game:
@@ -26,14 +49,8 @@ class Game:
         self.turn = Turn()
         self.player_perspective = Side.WHITE
         self.selected_position: Optional[Position] = None
-        self.winner: Optional[Side] = None
+        self.outcome: Optional[Win | Draw] = None
         self.board = ChessBoard()
-
-        # For ongoing dev purposes
-        # self.move_history = [
-        #     Move(self.board.get_piece(Position(1, 1)), Position(1, 1), Position(2, 2), MoveType.MOVE)
-        #     for _ in range(20)
-        # ]
         self.move_history = []
         self.animations: dict[Position, MoveAnimation] = {}
 
@@ -45,7 +62,7 @@ class Game:
         print(move.long_algebraic_notation)
         self.move_history.append(move)
         if MoveEffect.CHECKMATE in move.side_effects:
-            self.winner = self.turn.current_player
+            self.outcome = Win(self.turn.current_player, WinReason.CHECKMATE)
         self.turn.toggle_current_player()
 
     def update_animations(self) -> None:
