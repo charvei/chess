@@ -381,18 +381,22 @@ class GameOutcomeModal(UIComponent):
         if self.hidden:
             return
         assert game.outcome
+
         if game.outcome.winner == Side.WHITE:
             self.background_colour = 0
             self.text_colour = 15
         else:
             self.background_colour = 0
             self.text_colour = 4
-        pyxel.rect(self.x, self.y, self.width, self.height, self.background_colour)
+
+        # full box
+        # pyxel.rect(self.x, self.y, self.width, self.height, self.background_colour)
         pyxel.text(
             self.x + 1 * TILE_WIDTH,
             self.y + 1 * TILE_HEIGHT,
             f"{game.outcome.winner.name.title()} wins\n\nby {game.outcome.reason.value}!",
             self.text_colour,
         )
+
         for component in self.subcomponents:
             component.draw()

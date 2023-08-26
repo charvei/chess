@@ -345,23 +345,3 @@ class ProvisionalMove:
 
     def commit(self):
         self._committed = True
-
-
-class Turn:
-    def __init__(self):
-        self.current_player = Side.WHITE
-        # Currently hard coded for 10min games
-        self.timer = {Side.WHITE: 10 * 60 * 100, Side.BLACK: 10 * 60 * 1000}
-        self.last_update_time = datetime.now()
-
-    def toggle_current_player(self):
-        self.current_player = Side.BLACK if self.current_player == Side.WHITE else Side.WHITE
-
-    def get_mins_seconds_left(self, player: Side):
-        return divmod(self.timer[player] / 1000, 60)
-
-    def update_timer(self):
-        self.timer[self.current_player] -= int((datetime.now() - self.last_update_time).microseconds / 1000)
-        if self.timer[self.current_player] < 0:
-            self.timer[self.current_player] = 0
-        self.last_update_time = datetime.now()
