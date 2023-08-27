@@ -1,12 +1,15 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from functools import cached_property
+from time import sleep
 from typing import Optional
 
 import pyxel
 
 from chess import Side, Position, ChessBoard, ChessPiece, InvalidMove
 from pieces import MoveEffect
+from src.lichess_client import LiChess
 
 
 @dataclass
@@ -36,6 +39,11 @@ class DrawReason(Enum):
     AGREEMENT = "agreement"
 
 
+class PlayerInput(Enum):
+    CLIENT = "client"
+    LICHESS = "lichess"
+
+
 @dataclass
 class Win:
     winner: Side
@@ -47,9 +55,18 @@ class Draw:
     reason: DrawReason
 
 
+@dataclass(frozen=True)
+class Player:
+    side: Side
+    type: PlayerInput
+
+
 class Game:
     def __init__(self) -> None:
-        self.turn = Turn()
+        self.player_1 = Player(Side.WHITE, PlayerInput.LICHESS)
+        self.player_2 = Player(Side.BLACK, PlayerInput.LICHESS)
+        self._maybe_create_lichess_game()
+        self.turn = Turn(self.player_1, self.player_2)
         self.player_perspective = Side.WHITE
         self.selected_position: Optional[Position] = None
         self.outcome: Optional[Win | Draw] = None
@@ -57,15 +74,32 @@ class Game:
         self.move_history = []
         self.animations: dict[Position, MoveAnimation] = {}
 
+    @cached_property
+    def lichess(self):
+        return LiChess()
+
+    def _maybe_create_lichess_game(self):
+        if PlayerInput.LICHESS in (self.player_1.type, self.player_2.type):
+            self.lichess.new_game()
+
     def update(self) -> None:
         self.turn.update_timer()
+        for event in self.lichess.pop_events():
+            print(event)
+            if event["type"] == "gameState":
+                moves = event["moves"].split(" ")
+                move_for = Side.WHITE if bool(len(moves) % 2) else Side.BLACK
+                if move_for == self.turn.current_player.side and self.turn.current_player.type == PlayerInput.LICHESS:
+                    latest_move_src = Position.position_for_alg_coord(moves[-1][0:2])
+                    latest_move_dst = Position.position_for_alg_coord(moves[-1][2:4])
+                    self.move(latest_move_src, latest_move_dst)
 
     def move(self, src: Position, dst: Position) -> None:
-        move = self.board.move(src, dst, self.turn.current_player)
+        move = self.board.move(src, dst, self.turn.current_player.side)
         print(move.long_algebraic_notation)
         self.move_history.append(move)
         if MoveEffect.CHECKMATE in move.side_effects:
-            self.outcome = Win(self.turn.current_player, WinReason.CHECKMATE)
+            self.outcome = Win(self.turn.current_player.side, WinReason.CHECKMATE)
         self.turn.toggle_current_player()
 
     def update_animations(self) -> None:
@@ -91,7 +125,7 @@ class Game:
                     return
                 finally:
                     self.selected_position = None
-        if (piece := self.board.get_piece(clicked_position)) and piece.side == self.turn.current_player:
+        if (piece := self.board.get_piece(clicked_position)) and piece.side == self.turn.current_player.side:
             # Only allow for selecting position corresponding to a piece of a current players
             self.selected_position = clicked_position
 
@@ -111,16 +145,17 @@ class Game:
 
 
 class Turn:
-    def __init__(self):
-        self.current_player = Side.WHITE
+    def __init__(self, player_1: Player, player_2: Player):
+        self.current_player, self.waiting_player = (player_1, player_2) if player_1.side == Side.WHITE else (player_2, player_1)
         # Currently hard coded for 10min games
-        self.timer = {Side.WHITE: 10 * 60 * 100, Side.BLACK: 10 * 60 * 1000}
+        self.timer = {self.current_player: 10 * 60 * 1000, self.waiting_player: 10 * 60 * 1000}
         self.last_update_time = datetime.now()
 
     def toggle_current_player(self):
-        self.current_player = Side.BLACK if self.current_player == Side.WHITE else Side.WHITE
+        self.current_player, self.waiting_player = self.waiting_player, self.current_player
 
-    def get_mins_seconds_left(self, player: Side):
+    def get_mins_seconds_left(self, side: Side):
+        player = self.current_player if side == self.current_player.side else self.waiting_player
         return divmod(self.timer[player] / 1000, 60)
 
     def update_timer(self):

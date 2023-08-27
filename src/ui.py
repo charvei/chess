@@ -389,8 +389,7 @@ class GameOutcomeModal(UIComponent):
             self.background_colour = 0
             self.text_colour = 4
 
-        # full box
-        # pyxel.rect(self.x, self.y, self.width, self.height, self.background_colour)
+        pyxel.rect(self.x, self.y, self.width, self.height, self.background_colour)
         pyxel.text(
             self.x + 1 * TILE_WIDTH,
             self.y + 1 * TILE_HEIGHT,

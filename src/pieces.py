@@ -37,6 +37,12 @@ class Position:
     def __str__(self) -> str:
         return f"{FILE_LABELS[self.file]}{RANK_LABELS[self.rank]}"
 
+    @staticmethod
+    def position_for_alg_coord(coord: str) -> "Position":
+        assert len(coord) == 2
+        return Position(file=FILE_LABELS.index(coord[0]), rank=RANK_LABELS.index(coord[1]))
+
+
 
 @dataclass
 class Vector:

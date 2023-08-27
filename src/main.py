@@ -21,17 +21,17 @@ class App:
         pyxel.load("../assets/PIECES.pyxres")
         pyxel.mouse(visible=True)
         self.game = Game()
-        self.ui_events = list()
+        self.events = list()
         self.board_ui = Board()
-        self.game_info_ui = GameInfo(self.ui_events)
-        self.outcome_modal = GameOutcomeModal(self.ui_events)
+        self.game_info_ui = GameInfo(self.events)
+        self.outcome_modal = GameOutcomeModal(self.events)
         pyxel.run(self.update, self.draw)
 
     def update(self):
         """"""
         self.maybe_handle_left_click()
         self.maybe_handle_right_click()
-        self.handle_game_events()
+        self.handle_events()
         if not self.game.outcome:
             self.game.update()
             self.maybe_handle_run_out_of_time()
@@ -45,12 +45,12 @@ class App:
         self.game_info_ui.draw(self.game.turn, self.game.move_history.copy())
         self.outcome_modal.draw(self.game)
 
-    def handle_game_events(self):
-        while self.ui_events:
-            event = self.ui_events.pop()
+    def handle_events(self):
+        while self.events:
+            event = self.events.pop()
             if event == GameEvent.RESIGN:
                 print("handling resign")
-                self.game.outcome = Win(~self.game.turn.current_player, WinReason.RESIGNATION)
+                self.game.outcome = Win(~self.game.turn.current_player.side, WinReason.RESIGNATION)
             if event == GameEvent.OFFER_DRAW:
                 print("handling draw offer")
             if event == GameEvent.RESTART_GAME:
@@ -92,7 +92,7 @@ class App:
 
     def maybe_handle_run_out_of_time(self):
         if self.game.turn.timer[self.game.turn.current_player] <= 0:
-            self.game.outcome = Win(~self.game.turn.current_player, WinReason.TIME)
+            self.game.outcome = Win(~self.game.turn.current_side, WinReason.TIME)
 
     def maybe_handle_winner_found(self):
         if self.game.outcome:
